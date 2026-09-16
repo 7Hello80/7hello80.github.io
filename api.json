@@ -1,1 +1,1 @@
-{"version":"1.0.3","message":"更新简介：\n1. 修复邮件移动文件夹功能将邮件移动到某些地方时出现不显示的问题","url":"https://github.com/7Hello80/NiMail/releases/download/NiMail_App/NiMail_1.0.3.apk"}
+{"version":"1.0.3","message":"更新简介：\n1. 修复邮件移动文件夹功能将邮件移动到某些地方时出现不显示并出现丢失的问题，如已出现可到数据库更改emails的folder项的值为INBOX","url":"https://github.com/7Hello80/NiMail/releases/download/NiMail_App/NiMail_1.0.3.apk"}
