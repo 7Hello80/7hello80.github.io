@@ -1,1 +1,866 @@
-<p>hello world</p>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>纯 JS 神经网络 AI · 训练 / 导出 / 聊天</title>
+<style>
+  :root{
+    --bg:#0e1014; --panel:#161a22; --line:#252b38;
+    --fg:#e7eaf0; --dim:#8b93a5; --acc:#5b9dff; --ok:#3ddc97;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:24px; background:var(--bg); color:var(--fg);
+    font:14px/1.65 system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  }
+  h1{font-size:20px;margin:0 0 4px}
+  h2{font-size:14px;margin:0 0 12px;color:var(--acc);letter-spacing:.5px}
+  code{background:#0b0d12;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px}
+  .dim{color:var(--dim);font-size:12px;margin:0 0 14px}
+  .grid{display:grid;gap:16px;grid-template-columns:1fr 1fr;max-width:1200px}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .panel.full{grid-column:1/-1}
+  textarea,input[type=text],input[type=number]{
+    width:100%;background:#0b0d12;color:var(--fg);border:1px solid var(--line);
+    border-radius:8px;padding:8px 10px;font:inherit;outline:none;
+  }
+  textarea{height:150px;resize:vertical;font-family:ui-monospace,Consolas,monospace;font-size:13px}
+  textarea:focus,input:focus{border-color:var(--acc)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:12px}
+  label{flex:1;min-width:90px;font-size:12px;color:var(--dim);display:block}
+  label input{margin-top:4px}
+  button{
+    background:#1e2430;color:var(--fg);border:1px solid var(--line);border-radius:8px;
+    padding:9px 16px;font:inherit;cursor:pointer;transition:.15s;
+  }
+  button:hover{background:#28303f;border-color:#3a4457}
+  button.primary{background:var(--acc);border-color:var(--acc);color:#08111f;font-weight:600}
+  button.primary:hover{filter:brightness(1.1)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .stats{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:12px;color:var(--dim)}
+  .stats b{color:var(--ok);font-family:ui-monospace,Consolas,monospace;font-size:13px}
+  pre#output{
+    margin:12px 0 0;padding:12px;min-height:120px;max-height:320px;overflow:auto;
+    background:#0b0d12;border:1px solid var(--line);border-radius:8px;
+    white-space:pre-wrap;word-break:break-all;font-family:ui-monospace,Consolas,monospace;
+    font-size:13px;line-height:1.9;
+  }
+  /* 聊天 */
+  #chatLog{
+    height:300px;overflow:auto;background:#0b0d12;border:1px solid var(--line);
+    border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:10px;
+  }
+  .msg{max-width:82%;padding:8px 12px;border-radius:10px;white-space:pre-wrap;
+       word-break:break-word;font-size:13px;line-height:1.75}
+  .msg.user{align-self:flex-end;background:#1b3556;border:1px solid #2b4d7c}
+  .msg.bot{align-self:flex-start;background:#1a2029;border:1px solid #2a3242}
+  .msg.sys{align-self:center;color:var(--dim);font-size:12px;background:none;border:none}
+  #chatInput{flex:1}
+</style>
+</head>
+<body>
+
+<h1>🧠 纯 JS 神经网络 AI</h1>
+<p class="dim">零依赖 · 零接口 · 手写前向/反向传播 · 训练完可导出成 model.js 直接聊天</p>
+
+<div class="grid">
+
+  <!-- ============ 1. 训练 ============ -->
+  <section class="panel">
+    <h2>1 · 训练数据</h2>
+    <textarea id="corpus" spellcheck="false">春天来了，风变得温柔起来。田野里的雪慢慢化开，露出湿润的黑土。
+小草从泥土里探出头，嫩嫩的，绿绿的。河边的柳树抽出了新芽，枝条在风里轻轻摇摆。
+孩子们脱掉厚厚的棉衣，在田埂上跑来跑去，笑声传得很远。
+远处的山坡上，桃花开了，杏花也开了，一片粉白，像落了一地的云。
+老农牵着牛走过石桥，牛铃叮叮当当，惊起了水面上的几只白鹭。
+太阳渐渐升高，照在人身上暖洋洋的。炊烟从屋顶上升起来，饭菜的香味飘满了整个村子。
+奶奶坐在门口的石阶上，晒着太阳，手里不停地编着竹篮。她说，等再过些日子，就可以种瓜了。
+到了傍晚，天边的云被染成了橘红色，鸟儿成群地飞回树林。
+夜里下了一场小雨，早晨推开门，空气清得像洗过一样。</textarea>
+    <div class="row">
+      <label>上下文长度<input id="ctx" type="number" value="6" min="2" max="20"></label>
+      <label>隐藏层大小<input id="hidden" type="number" value="64" min="8" max="512"></label>
+      <label>学习率<input id="lr" type="number" value="0.01" step="0.001" min="0.0001"></label>
+    </div>
+    <div class="row">
+      <button id="btnTrain" class="primary">开始训练</button>
+      <button id="btnStop" disabled>停止</button>
+    </div>
+    <div class="stats">
+      <span>轮次 <b id="sEpoch">0</b></span>
+      <span>步数 <b id="sStep">0</b></span>
+      <span>损失 <b id="sLoss">-</b></span>
+      <span>速度 <b id="sSps">0</b>/s</span>
+      <span>参数 <b id="sParams">0</b></span>
+    </div>
+  </section>
+
+  <!-- ============ 2. 生成 ============ -->
+  <section class="panel">
+    <h2>2 · 生成文本（调试用）</h2>
+    <div class="row">
+      <label>起始词<input id="seed" type="text" placeholder="留空则从空格开始"></label>
+      <label>生成长度<input id="genLen" type="number" value="120" min="1" max="1000"></label>
+      <label>温度<input id="temp" type="number" value="0.8" step="0.1" min="0.1" max="2"></label>
+    </div>
+    <div class="row">
+      <button id="btnGen" class="primary">生成</button>
+    </div>
+    <pre id="output">（这里会显示生成的内容）</pre>
+  </section>
+
+  <!-- ============ 3. 导出 / 导入 ============ -->
+  <section class="panel full">
+    <h2>3 · 导出 / 导入模型文件</h2>
+    <p class="dim">
+      训练完成后点「导出 model.js」，会下载一个<b>自包含</b>的 JS 文件：里面既有全部权重（base64 编码的 Float32），也有推理代码。
+      在任何网页里写 <code>&lt;script src="model.js"&gt;&lt;/script&gt;</code>，就能直接用 <code>window.AI_MODEL</code> 聊天，不需要本页面。
+    </p>
+    <div class="row">
+      <button id="btnExportJs" class="primary">📦 导出 model.js</button>
+      <button id="btnExportJson">导出 JSON</button>
+      <button id="btnSave">💾 存 localStorage</button>
+      <button id="btnLoad">📂 从 localStorage 读</button>
+      <button id="btnDel">🗑 删除 localStorage</button>
+      <label style="flex:0 0 auto">导入 model.js / JSON
+        <input id="fileImport" type="file" accept=".js,.json" style="padding:4px;width:auto">
+      </label>
+    </div>
+    <p class="dim" id="exportInfo" style="margin-top:12px"></p>
+    <p class="dim" id="storeInfo" style="margin-top:4px">localStorage：尚未保存</p>
+  </section>
+
+  <!-- ============ 4. 聊天 ============ -->
+  <section class="panel full">
+    <h2>4 · 聊天</h2>
+    <p class="dim">
+      当前模型：<b id="chatModelInfo" style="color:var(--ok)">无</b>　
+      （把你的话当作开头，让模型接着往下写；温度越高越放飞）
+    </p>
+    <div id="chatLog"></div>
+    <div class="row">
+      <input id="chatInput" type="text" placeholder="说点什么，回车或点发送…">
+      <button id="chatSend" class="primary">发送</button>
+      <button id="chatClear">清空</button>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* =========================================================
+   0. 工具函数
+   ========================================================= */
+
+function f32ToB64(arr) {
+  const bytes = new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
+  let s = '';
+  const CH = 0x2000;
+  for (let i = 0; i < bytes.length; i += CH) {
+    s += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+  }
+  return btoa(s);
+}
+function b64ToF32(b64) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Float32Array(bytes.buffer);
+}
+
+let _spare = null;
+function randn() {
+  if (_spare !== null) { const v = _spare; _spare = null; return v; }
+  let u, v, s;
+  do { u = Math.random() * 2 - 1; v = Math.random() * 2 - 1; s = u * u + v * v; }
+  while (s >= 1 || s === 0);
+  const m = Math.sqrt(-2 * Math.log(s) / s);
+  _spare = v * m;
+  return u * m;
+}
+
+function sampleFrom(probs, T) {
+  const n = probs.length;
+  if (T < 0.05) {
+    let best = 0;
+    for (let i = 1; i < n; i++) if (probs[i] > probs[best]) best = i;
+    return best;
+  }
+  const w = new Float64Array(n);
+  let sum = 0;
+  for (let i = 0; i < n; i++) { w[i] = Math.pow(probs[i], 1 / T); sum += w[i]; }
+  let r = Math.random() * sum;
+  for (let i = 0; i < n; i++) { r -= w[i]; if (r <= 0) return i; }
+  return n - 1;
+}
+
+function download(filename, text, mime) {
+  const blob = new Blob([text], { type: mime || 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+const $ = s => document.querySelector(s);
+
+/* =========================================================
+   1. 字符级 MLP 语言模型（训练版）
+   ========================================================= */
+
+class CharMLP {
+  constructor(vocab, ctx, hidden, chars) {
+    this.vocab = vocab;
+    this.ctx = ctx;
+    this.hidden = hidden;
+    this.inDim = vocab * ctx;
+    this.chars = chars ? chars.slice() : [];
+    this.charToIdx = new Map(this.chars.map((c, i) => [c, i]));
+
+    this.W1 = new Float32Array(this.inDim * hidden);
+    this.b1 = new Float32Array(hidden);
+    this.W2 = new Float32Array(hidden * vocab);
+    this.b2 = new Float32Array(vocab);
+
+    const s1 = Math.sqrt(2 / ctx);
+    for (let i = 0; i < this.W1.length; i++) this.W1[i] = randn() * s1;
+    const s2 = Math.sqrt(1 / hidden);
+    for (let i = 0; i < this.W2.length; i++) this.W2[i] = randn() * s2;
+
+    this.gW1 = new Float32Array(this.W1.length);
+    this.gb1 = new Float32Array(hidden);
+    this.gW2 = new Float32Array(this.W2.length);
+    this.gb2 = new Float32Array(vocab);
+
+    this.mW1 = new Float32Array(this.W1.length); this.vW1 = new Float32Array(this.W1.length);
+    this.mb1 = new Float32Array(hidden);         this.vb1 = new Float32Array(hidden);
+    this.mW2 = new Float32Array(this.W2.length); this.vW2 = new Float32Array(this.W2.length);
+    this.mb2 = new Float32Array(vocab);          this.vb2 = new Float32Array(vocab);
+
+    this.h = new Float32Array(hidden);
+    this.logits = new Float32Array(vocab);
+    this.probs = new Float32Array(vocab);
+    this.dlog = new Float32Array(vocab);
+    this.dh = new Float32Array(hidden);
+
+    this.t = 0;
+  }
+
+  paramCount() {
+    return this.W1.length + this.b1.length + this.W2.length + this.b2.length;
+  }
+
+  forward(ctxIds) {
+    const { vocab, hidden, ctx } = this;
+    const h = this.h, logits = this.logits;
+    h.set(this.b1);
+    for (let c = 0; c < ctx; c++) {
+      const off = (c * vocab + ctxIds[c]) * hidden;
+      for (let j = 0; j < hidden; j++) h[j] += this.W1[off + j];
+    }
+    for (let j = 0; j < hidden; j++) if (h[j] < 0) h[j] = 0;
+
+    logits.set(this.b2);
+    for (let j = 0; j < hidden; j++) {
+      const hj = h[j];
+      if (hj === 0) continue;
+      const off = j * vocab;
+      for (let o = 0; o < vocab; o++) logits[o] += this.W2[off + o] * hj;
+    }
+
+    let mx = -Infinity;
+    for (let o = 0; o < vocab; o++) if (logits[o] > mx) mx = logits[o];
+    let sum = 0;
+    const p = this.probs;
+    for (let o = 0; o < vocab; o++) { const e = Math.exp(logits[o] - mx); p[o] = e; sum += e; }
+    const inv = 1 / sum;
+    for (let o = 0; o < vocab; o++) p[o] *= inv;
+    return p;
+  }
+
+  backward(ctxIds, target) {
+    const { vocab, hidden, ctx } = this;
+    const h = this.h, p = this.probs, dlog = this.dlog, dh = this.dh;
+
+    for (let o = 0; o < vocab; o++) dlog[o] = p[o];
+    dlog[target] -= 1;
+
+    for (let o = 0; o < vocab; o++) this.gb2[o] += dlog[o];
+
+    dh.fill(0);
+    for (let j = 0; j < hidden; j++) {
+      if (h[j] === 0) continue;
+      const off = j * vocab;
+      const hj = h[j];
+      let s = 0;
+      for (let o = 0; o < vocab; o++) {
+        s += this.W2[off + o] * dlog[o];
+        this.gW2[off + o] += hj * dlog[o];
+      }
+      dh[j] = s;
+    }
+
+    for (let c = 0; c < ctx; c++) {
+      const off = (c * vocab + ctxIds[c]) * hidden;
+      for (let j = 0; j < hidden; j++) {
+        const g = dh[j];
+        if (g !== 0) this.gW1[off + j] += g;
+      }
+    }
+    for (let j = 0; j < hidden; j++) this.gb1[j] += dh[j];
+
+    return -Math.log(Math.max(p[target], 1e-12));
+  }
+
+  step(lr) {
+    this.t++;
+    const B1 = 0.9, B2 = 0.999, EPS = 1e-8;
+    const bc1 = 1 - Math.pow(B1, this.t);
+    const bc2 = 1 - Math.pow(B2, this.t);
+    const upd = (P, G, M, V) => {
+      for (let i = 0; i < P.length; i++) {
+        const g = G[i];
+        M[i] = B1 * M[i] + (1 - B1) * g;
+        V[i] = B2 * V[i] + (1 - B2) * g * g;
+        P[i] -= lr * (M[i] / bc1) / (Math.sqrt(V[i] / bc2) + EPS);
+      }
+      G.fill(0);
+    };
+    upd(this.W1, this.gW1, this.mW1, this.vW1);
+    upd(this.b1, this.gb1, this.mb1, this.vb1);
+    upd(this.W2, this.gW2, this.mW2, this.vW2);
+    upd(this.b2, this.gb2, this.mb2, this.vb2);
+  }
+
+  trainSample(ctxIds, target, lr) {
+    this.forward(ctxIds);
+    const loss = this.backward(ctxIds, target);
+    this.step(lr);
+    return loss;
+  }
+
+  generate(seedIds, length, temperature) {
+    const ids = seedIds.slice();
+    const out = [];
+    const ctxIds = new Int32Array(this.ctx);
+    for (let i = 0; i < length; i++) {
+      for (let c = 0; c < this.ctx; c++) {
+        const k = ids.length - this.ctx + c;
+        ctxIds[c] = k >= 0 ? ids[k] : 0;
+      }
+      const p = this.forward(ctxIds);
+      const nxt = sampleFrom(p, temperature);
+      out.push(nxt);
+      ids.push(nxt);
+      if (ids.length > 4096) ids.splice(0, 2048);
+    }
+    return out;
+  }
+
+  serialize() {
+    const parts = [this.W1, this.b1, this.W2, this.b2];
+    let total = 0;
+    for (const p of parts) total += p.length;
+    const buf = new Float32Array(total);
+    let off = 0;
+    for (const p of parts) { buf.set(p, off); off += p.length; }
+    return JSON.stringify({
+      version: 1,
+      vocab: this.vocab,
+      ctx: this.ctx,
+      hidden: this.hidden,
+      chars: this.chars,
+      data: f32ToB64(buf)
+    });
+  }
+
+  static deserialize(str) {
+    const o = JSON.parse(str);
+    const m = new CharMLP(o.vocab, o.ctx, o.hidden, o.chars);
+    const buf = b64ToF32(o.data);
+    let off = 0;
+    for (const p of [m.W1, m.b1, m.W2, m.b2]) {
+      p.set(buf.subarray(off, off + p.length));
+      off += p.length;
+    }
+    return m;
+  }
+}
+
+/* =========================================================
+   2. 生成自包含的 model.js 源码
+   ========================================================= */
+
+function buildModelJsSource(raw) {
+  const json = JSON.stringify(raw);
+  return `/* ============================================================
+ * model.js — 由「纯 JS 神经网络 AI」导出
+ * 生成时间：${new Date().toLocaleString()}
+ * 结构：字符级 MLP（one-hot(上下文) → 全连接 → ReLU → 全连接 → Softmax）
+ *
+ * 用法：
+ *   <script src="model.js"></script>
+ *   const ids = AI_MODEL.encode("你好");
+ *   const out = AI_MODEL.generate(ids, 100, 0.85);
+ *   console.log(AI_MODEL.textOf(out));
+ * ============================================================ */
+(function (global) {
+  'use strict';
+
+  var RAW = ${json};
+
+  function b64ToF32(b64) {
+    var bin = atob(b64);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new Float32Array(bytes.buffer);
+  }
+
+  function build(raw) {
+    var vocab = raw.vocab, ctx = raw.ctx, hidden = raw.hidden, chars = raw.chars;
+    var buf = b64ToF32(raw.data);
+    var off = 0;
+    var W1 = buf.subarray(off, off + vocab * ctx * hidden); off += W1.length;
+    var b1 = buf.subarray(off, off + hidden);               off += hidden;
+    var W2 = buf.subarray(off, off + hidden * vocab);       off += hidden * vocab;
+    var b2 = buf.subarray(off, off + vocab);
+
+    var charToIdx = new Map();
+    for (var i = 0; i < chars.length; i++) charToIdx.set(chars[i], i);
+
+    var h = new Float32Array(hidden);
+    var logits = new Float32Array(vocab);
+    var probs = new Float32Array(vocab);
+
+    function forward(ctxIds) {
+      var c, j, k, o;
+      h.set(b1);
+      for (c = 0; c < ctx; c++) {
+        o = (c * vocab + ctxIds[c]) * hidden;
+        for (j = 0; j < hidden; j++) h[j] += W1[o + j];
+      }
+      for (j = 0; j < hidden; j++) if (h[j] < 0) h[j] = 0;
+
+      logits.set(b2);
+      for (j = 0; j < hidden; j++) {
+        var hj = h[j];
+        if (hj === 0) continue;
+        o = j * vocab;
+        for (k = 0; k < vocab; k++) logits[k] += W2[o + k] * hj;
+      }
+
+      var mx = -Infinity;
+      for (k = 0; k < vocab; k++) if (logits[k] > mx) mx = logits[k];
+      var sum = 0;
+      for (k = 0; k < vocab; k++) { var e = Math.exp(logits[k] - mx); probs[k] = e; sum += e; }
+      var inv = 1 / sum;
+      for (k = 0; k < vocab; k++) probs[k] *= inv;
+      return probs;
+    }
+
+    function sample(T) {
+      var k;
+      if (T < 0.05) {
+        var best = 0;
+        for (k = 1; k < vocab; k++) if (probs[k] > probs[best]) best = k;
+        return best;
+      }
+      var w = new Float64Array(vocab);
+      var sum = 0;
+      for (k = 0; k < vocab; k++) { w[k] = Math.pow(probs[k], 1 / T); sum += w[k]; }
+      var r = Math.random() * sum;
+      for (k = 0; k < vocab; k++) { r -= w[k]; if (r <= 0) return k; }
+      return vocab - 1;
+    }
+
+    function generate(seedIds, length, T) {
+      var ids = seedIds.slice();
+      var out = [];
+      var ctxIds = new Int32Array(ctx);
+      for (var i = 0; i < length; i++) {
+        for (var c = 0; c < ctx; c++) {
+          var k = ids.length - ctx + c;
+          ctxIds[c] = k >= 0 ? ids[k] : 0;
+        }
+        forward(ctxIds);
+        var nxt = sample(T);
+        out.push(nxt);
+        ids.push(nxt);
+        if (ids.length > 4096) ids.splice(0, 2048);
+      }
+      return out;
+    }
+
+    function encode(str) {
+      var a = [];
+      for (var i = 0; i < str.length; i++) {
+        var id = charToIdx.get(str[i]);
+        if (id !== undefined) a.push(id);
+      }
+      return a;
+    }
+
+    function textOf(idArr) {
+      var s = '';
+      for (var i = 0; i < idArr.length; i++) s += chars[idArr[i]];
+      return s;
+    }
+
+    return {
+      vocab: vocab, ctx: ctx, hidden: hidden, chars: chars, charToIdx: charToIdx,
+      forward: forward, generate: generate, encode: encode, textOf: textOf,
+      paramCount: function () { return W1.length + b1.length + W2.length + b2.length; }
+    };
+  }
+
+  global.AI_MODEL = build(RAW);
+
+  if (typeof module !== 'undefined' && module.exports) module.exports = global.AI_MODEL;
+
+})(typeof window !== 'undefined' ? window : globalThis);
+`;
+}
+
+/* =========================================================
+   3. localStorage 存储
+   ========================================================= */
+
+const ModelStore = {
+  KEY: 'char_mlp_model_v1',
+  save(model) {
+    try { localStorage.setItem(this.KEY, model.serialize()); return { ok: true }; }
+    catch (e) { return { ok: false, msg: e.message || String(e) }; }
+  },
+  load() {
+    const raw = localStorage.getItem(this.KEY);
+    if (!raw) return null;
+    try { return CharMLP.deserialize(raw); } catch (e) { console.error(e); return null; }
+  },
+  remove() { localStorage.removeItem(this.KEY); },
+  size() { const r = localStorage.getItem(this.KEY); return r ? r.length : 0; }
+};
+
+/* =========================================================
+   4. 应用逻辑
+   ========================================================= */
+
+let model = null;        // 当前训练 / 从 localStorage 加载的模型
+let activeModel = null;  // 聊天时实际使用的模型
+let running = false;
+let timerId = null;
+
+/* -------- 数据集 -------- */
+function buildDataset(text, ctx) {
+  const set = new Set([' ']);
+  for (const ch of text) set.add(ch);
+  const chars = Array.from(set);
+  const charToIdx = new Map(chars.map((c, i) => [c, i]));
+
+  const ids = new Int32Array(text.length);
+  let k = 0;
+  for (const ch of text) ids[k++] = charToIdx.get(ch);
+
+  const n = ids.length - ctx;
+  if (n <= 0) return null;
+
+  const X = new Int32Array(n * ctx);
+  const Y = new Int32Array(n);
+  for (let i = 0; i < n; i++) {
+    for (let c = 0; c < ctx; c++) X[i * ctx + c] = ids[i + c];
+    Y[i] = ids[i + ctx];
+  }
+  return { chars, charToIdx, X, Y, n };
+}
+
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = (Math.random() * (i + 1)) | 0;
+    const t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+}
+
+/* -------- 训练 -------- */
+function startTraining() {
+  stopTraining();
+
+  const text = $('#corpus').value;
+  const ctx = Math.min(20, Math.max(2, parseInt($('#ctx').value, 10) || 6));
+  const hidden = Math.min(512, Math.max(8, parseInt($('#hidden').value, 10) || 64));
+  const lr = Math.max(1e-5, parseFloat($('#lr').value) || 0.01);
+
+  const ds = buildDataset(text, ctx);
+  if (!ds) { alert('训练文本太短了，至少要比上下文长度长。'); return; }
+
+  model = new CharMLP(ds.chars.length, ctx, hidden, ds.chars);
+  activeModel = model;
+  refreshChatModelInfo();
+  $('#sParams').textContent = model.paramCount().toLocaleString();
+
+  const { X, Y, n } = ds;
+  const order = new Int32Array(n);
+  for (let i = 0; i < n; i++) order[i] = i;
+
+  let epoch = 0, ptr = 0, step = 0;
+  let lossEMA = 0, hasLoss = false;
+  let tPrev = performance.now(), sPrev = 0;
+
+  running = true;
+  $('#btnTrain').disabled = true;
+  $('#btnStop').disabled = false;
+
+  const chunk = () => {
+    if (!running) return;
+    const t0 = performance.now();
+    let chunkLoss = 0, chunkCnt = 0;
+
+    while (performance.now() - t0 < 35) {
+      if (ptr >= n) { ptr = 0; epoch++; shuffle(order); }
+      const i = order[ptr++];
+      const off = i * ctx;
+      const loss = model.trainSample(X.subarray(off, off + ctx), Y[i], lr);
+      chunkLoss += loss; chunkCnt++; step++;
+    }
+
+    if (chunkCnt > 0) {
+      const avg = chunkLoss / chunkCnt;
+      lossEMA = hasLoss ? lossEMA * 0.9 + avg * 0.1 : avg;
+      hasLoss = true;
+    }
+
+    const now = performance.now();
+    if (now - tPrev > 500) {
+      $('#sSps').textContent = Math.round((step - sPrev) / ((now - tPrev) / 1000));
+      tPrev = now; sPrev = step;
+    }
+
+    $('#sEpoch').textContent = epoch;
+    $('#sStep').textContent = step;
+    $('#sLoss').textContent = hasLoss ? lossEMA.toFixed(4) : '-';
+
+    timerId = setTimeout(chunk, 0);
+  };
+  chunk();
+}
+
+function stopTraining() {
+  running = false;
+  if (timerId) { clearTimeout(timerId); timerId = null; }
+  $('#btnTrain').disabled = false;
+  $('#btnStop').disabled = true;
+}
+
+/* -------- 生成（调试面板） -------- */
+function generateText() {
+  if (!model) { alert('还没有模型，请先训练或加载。'); return; }
+
+  const seedStr = $('#seed').value;
+  const len = Math.min(1000, Math.max(1, parseInt($('#genLen').value, 10) || 120));
+  const temp = Math.max(0.05, parseFloat($('#temp').value) || 0.8);
+
+  const seedIds = [];
+  for (const ch of seedStr) {
+    const id = model.charToIdx.get(ch);
+    if (id !== undefined) seedIds.push(id);
+  }
+
+  const t0 = performance.now();
+  const outIds = model.generate(seedIds, len, temp);
+  const ms = (performance.now() - t0).toFixed(0);
+  const outText = seedStr + outIds.map(i => model.chars[i]).join('');
+  $('#output').textContent = outText + `\n\n—— ${len} 个字符，耗时 ${ms} ms ——`;
+}
+
+/* -------- 导出 -------- */
+function exportModelJs() {
+  if (!model) { alert('还没有模型，请先训练。'); return; }
+  const raw = JSON.parse(model.serialize());
+  const src = buildModelJsSource(raw);
+  download('model.js', src, 'text/javascript;charset=utf-8');
+  $('#exportInfo').textContent =
+    `已导出 model.js（约 ${(src.length / 1024).toFixed(1)} KB，含 ${model.paramCount().toLocaleString()} 个参数）` +
+    `　用法：<script src="model.js"><\/script> 然后调用 AI_MODEL.generate(...)`;
+}
+
+function exportModelJson() {
+  if (!model) { alert('还没有模型，请先训练。'); return; }
+  download('model.json', model.serialize(), 'application/json;charset=utf-8');
+  $('#exportInfo').textContent = '已导出 model.json（纯数据，不含推理代码）';
+}
+
+/* -------- 导入 -------- */
+function importModelFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const text = String(reader.result);
+    let m = null;
+
+    // 1) 尝试当作 model.js 执行（会设置 window.AI_MODEL）
+    if (/\.js$/i.test(file.name)) {
+      try {
+        const fn = new Function(text + '\nreturn (typeof window !== "undefined" ? window.AI_MODEL : null);');
+        m = fn();
+      } catch (e) { console.warn('执行 JS 失败：', e); }
+    }
+
+    // 2) 尝试当作纯 JSON 解析
+    if (!m) {
+      try {
+        const o = JSON.parse(text);
+        if (o && o.chars && o.data) {
+          // 手动构建一个只读推理对象
+          const src = buildModelJsSource(o);
+          const fn = new Function(src + '\nreturn window.AI_MODEL;');
+          m = fn();
+        }
+      } catch (e) { console.warn('解析 JSON 失败：', e); }
+    }
+
+    if (!m) { alert('加载失败：文件里没有找到可用的模型数据。'); return; }
+
+    activeModel = m;
+    refreshChatModelInfo();
+    $('#ctx').value = m.ctx;
+    $('#hidden').value = m.hidden;
+    $('#sParams').textContent = m.paramCount().toLocaleString();
+    $('#exportInfo').textContent = `已导入 ${file.name}，现在聊天用的就是这个模型。`;
+    appendMsg('sys', `已加载模型：${file.name}`);
+  };
+  reader.readAsText(file);
+}
+
+/* -------- 存储 UI -------- */
+function refreshStoreInfo() {
+  const bytes = ModelStore.size();
+  $('#storeInfo').textContent = bytes
+    ? `localStorage：已保存 ${(bytes / 1024).toFixed(1)} KB（键 ${ModelStore.KEY}）`
+    : 'localStorage：尚未保存';
+}
+
+/* -------- 聊天 -------- */
+function refreshChatModelInfo() {
+  const m = activeModel;
+  if (!m) { $('#chatModelInfo').textContent = '无'; return; }
+  const tag = (model && m === model) ? '当前训练的模型' : '导入的模型';
+  $('#chatModelInfo').textContent =
+    `${tag} · 词表 ${m.vocab} · 上下文 ${m.ctx} · 隐藏层 ${m.hidden}`;
+}
+
+function appendMsg(kind, text) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + kind;
+  div.textContent = text;
+  const log = $('#chatLog');
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+  return div;
+}
+
+function cleanReply(s) {
+  s = s.replace(/^[\s\u3000，、。！？；：""''（）《》]+/, '');
+  const m = s.match(/^[^。！？\n]*[。！？\n]/);
+  if (m && m[0].length >= 4) s = m[0];
+  s = s.replace(/[\s\u3000]+$/, '');
+  return s;
+}
+
+function chatReply(userText) {
+  const m = activeModel;
+  if (!m) return '（还没有模型：请先在左侧训练，或在上方导入 model.js）';
+
+  // 把你的话当作种子；模型没见过的字符跳过
+  const seedIds = [];
+  for (const ch of userText) {
+    const id = m.charToIdx.get(ch);
+    if (id !== undefined) seedIds.push(id);
+  }
+  if (seedIds.length === 0) seedIds.push(0); // 空格，作为开头
+
+  const ids = m.generate(seedIds, 100, 0.85);
+  const raw = ids.map(i => m.chars[i]).join('');
+  const reply = cleanReply(raw);
+  return reply || '（没生成出内容，换个说法再试试）';
+}
+
+function sendChat() {
+  const input = $('#chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+  if (!activeModel) {
+    appendMsg('sys', '还没有可用模型，请先训练或导入 model.js');
+    return;
+  }
+  appendMsg('user', text);
+  input.value = '';
+
+  const thinking = appendMsg('sys', '思考中…');
+  setTimeout(() => {
+    const t0 = performance.now();
+    const reply = chatReply(text);
+    const ms = (performance.now() - t0).toFixed(0);
+    thinking.remove();
+    appendMsg('bot', reply);
+    if (ms > 200) appendMsg('sys', `（生成耗时 ${ms} ms）`);
+  }, 10);
+}
+
+/* -------- 事件绑定 -------- */
+$('#btnTrain').addEventListener('click', startTraining);
+$('#btnStop').addEventListener('click', stopTraining);
+$('#btnGen').addEventListener('click', generateText);
+$('#btnExportJs').addEventListener('click', exportModelJs);
+$('#btnExportJson').addEventListener('click', exportModelJson);
+
+$('#btnSave').addEventListener('click', () => {
+  if (!model) { alert('还没有模型可以保存。'); return; }
+  const r = ModelStore.save(model);
+  if (r.ok) { refreshStoreInfo(); $('#storeInfo').textContent += '  ✅ 保存成功'; }
+  else alert('保存失败（可能超出 localStorage 容量）：' + r.msg);
+});
+
+$('#btnLoad').addEventListener('click', () => {
+  const m = ModelStore.load();
+  if (!m) { alert('没有找到已保存的模型，或数据已损坏。'); return; }
+  stopTraining();
+  model = m;
+  activeModel = m;
+  $('#ctx').value = m.ctx;
+  $('#hidden').value = m.hidden;
+  $('#sParams').textContent = m.paramCount().toLocaleString();
+  refreshChatModelInfo();
+  refreshStoreInfo();
+  appendMsg('sys', '已从 localStorage 加载模型');
+});
+
+$('#btnDel').addEventListener('click', () => {
+  ModelStore.remove();
+  refreshStoreInfo();
+});
+
+$('#fileImport').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0];
+  if (f) importModelFile(f);
+  e.target.value = '';
+});
+
+$('#chatSend').addEventListener('click', sendChat);
+$('#chatInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+});
+$('#chatClear').addEventListener('click', () => {
+  $('#chatLog').innerHTML = '';
+  appendMsg('sys', '对话已清空');
+});
+
+/* -------- 初始化 -------- */
+refreshStoreInfo();
+refreshChatModelInfo();
+appendMsg('sys', '开始训练，或导入 model.js 后即可聊天');
+</script>
+</body>
+</html>
