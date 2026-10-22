@@ -1,866 +1,364 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>纯 JS 神经网络 AI · 训练 / 导出 / 聊天</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>图片藏文件 · WASM 频域隐写</title>
 <style>
-  :root{
-    --bg:#0e1014; --panel:#161a22; --line:#252b38;
-    --fg:#e7eaf0; --dim:#8b93a5; --acc:#5b9dff; --ok:#3ddc97;
-  }
-  *{box-sizing:border-box}
-  body{
-    margin:0; padding:24px; background:var(--bg); color:var(--fg);
-    font:14px/1.65 system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
-  }
-  h1{font-size:20px;margin:0 0 4px}
-  h2{font-size:14px;margin:0 0 12px;color:var(--acc);letter-spacing:.5px}
-  code{background:#0b0d12;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px}
-  .dim{color:var(--dim);font-size:12px;margin:0 0 14px}
-  .grid{display:grid;gap:16px;grid-template-columns:1fr 1fr;max-width:1200px}
-  @media(max-width:860px){.grid{grid-template-columns:1fr}}
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
-  .panel.full{grid-column:1/-1}
-  textarea,input[type=text],input[type=number]{
-    width:100%;background:#0b0d12;color:var(--fg);border:1px solid var(--line);
-    border-radius:8px;padding:8px 10px;font:inherit;outline:none;
-  }
-  textarea{height:150px;resize:vertical;font-family:ui-monospace,Consolas,monospace;font-size:13px}
-  textarea:focus,input:focus{border-color:var(--acc)}
-  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:12px}
-  label{flex:1;min-width:90px;font-size:12px;color:var(--dim);display:block}
-  label input{margin-top:4px}
-  button{
-    background:#1e2430;color:var(--fg);border:1px solid var(--line);border-radius:8px;
-    padding:9px 16px;font:inherit;cursor:pointer;transition:.15s;
-  }
-  button:hover{background:#28303f;border-color:#3a4457}
-  button.primary{background:var(--acc);border-color:var(--acc);color:#08111f;font-weight:600}
-  button.primary:hover{filter:brightness(1.1)}
-  button:disabled{opacity:.4;cursor:not-allowed}
-  .stats{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:12px;color:var(--dim)}
-  .stats b{color:var(--ok);font-family:ui-monospace,Consolas,monospace;font-size:13px}
-  pre#output{
-    margin:12px 0 0;padding:12px;min-height:120px;max-height:320px;overflow:auto;
-    background:#0b0d12;border:1px solid var(--line);border-radius:8px;
-    white-space:pre-wrap;word-break:break-all;font-family:ui-monospace,Consolas,monospace;
-    font-size:13px;line-height:1.9;
-  }
-  /* 聊天 */
-  #chatLog{
-    height:300px;overflow:auto;background:#0b0d12;border:1px solid var(--line);
-    border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:10px;
-  }
-  .msg{max-width:82%;padding:8px 12px;border-radius:10px;white-space:pre-wrap;
-       word-break:break-word;font-size:13px;line-height:1.75}
-  .msg.user{align-self:flex-end;background:#1b3556;border:1px solid #2b4d7c}
-  .msg.bot{align-self:flex-start;background:#1a2029;border:1px solid #2a3242}
-  .msg.sys{align-self:center;color:var(--dim);font-size:12px;background:none;border:none}
-  #chatInput{flex:1}
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", sans-serif; margin: 0; padding: 20px; background: #f5f6fa; color: #222; }
+  h1 { font-size: 22px; text-align: center; }
+  .sub { text-align: center; font-size: 13px; color: #888; margin: -6px 0 20px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1200px; margin: 0 auto; }
+  @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+  .panel { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+  .panel h2 { font-size: 17px; margin: 0 0 14px; }
+  label { display: block; font-size: 13px; color: #555; margin: 12px 0 6px; }
+  input[type=file] { width: 100%; font-size: 13px; }
+  select { padding: 6px; border-radius: 6px; border: 1px solid #ccc; font-size: 13px; }
+  button { background: #3b6ef5; color: #fff; border: none; padding: 9px 18px; border-radius: 8px; cursor: pointer; margin-top: 14px; font-size: 14px; }
+  button:hover { background: #2a5ae0; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .hint { font-size: 12px; color: #888; margin-top: 10px; line-height: 1.7; }
+  .file-list { margin-top: 12px; }
+  .file-item { display: flex; align-items: center; gap: 10px; padding: 8px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; background: #fafafa; }
+  .file-item .name { flex: 1; font-size: 13px; word-break: break-all; }
+  .file-item .size { font-size: 12px; color: #999; }
+  .file-item a { font-size: 13px; color: #3b6ef5; text-decoration: none; }
+  .file-item button { margin: 0; padding: 4px 10px; font-size: 12px; }
+  .preview { margin-top: 12px; }
+  .preview img { max-width: 100%; border-radius: 8px; }
+  .preview pre { background: #f0f0f0; padding: 10px; border-radius: 6px; max-height: 300px; overflow: auto; font-size: 12px; white-space: pre-wrap; }
+  .preview iframe { width: 100%; height: 400px; border: 1px solid #ddd; border-radius: 6px; }
+  .status { margin-top: 12px; font-size: 13px; padding: 10px; border-radius: 8px; display: none; }
+  .status.ok { display: block; background: #e6f7ea; color: #1a7f37; }
+  .status.err { display: block; background: #fdecea; color: #b3261e; }
+  .status.info { display: block; background: #eef3ff; color: #2a4ba0; }
+  .download { display: inline-block; margin: 6px 0; padding: 8px 16px; background: #1a7f37; color: #fff; border-radius: 8px; text-decoration: none; font-size: 14px; }
+  .wasm-badge { display: inline-block; font-size: 11px; background: #e8eaff; color: #4a5cf5; padding: 2px 8px; border-radius: 20px; vertical-align: middle; margin-left: 8px; }
 </style>
 </head>
 <body>
-
-<h1>🧠 纯 JS 神经网络 AI</h1>
-<p class="dim">零依赖 · 零接口 · 手写前向/反向传播 · 训练完可导出成 model.js 直接聊天</p>
-
+<h1>🖼️ 图片藏文件 <span class="wasm-badge">WASM 加速</span></h1>
+<p class="sub">DWT-DCT-SVD 频域隐写 · 多文件打包 · 抗微信压缩 · 在线预览</p>
 <div class="grid">
-
-  <!-- ============ 1. 训练 ============ -->
-  <section class="panel">
-    <h2>1 · 训练数据</h2>
-    <textarea id="corpus" spellcheck="false">春天来了，风变得温柔起来。田野里的雪慢慢化开，露出湿润的黑土。
-小草从泥土里探出头，嫩嫩的，绿绿的。河边的柳树抽出了新芽，枝条在风里轻轻摇摆。
-孩子们脱掉厚厚的棉衣，在田埂上跑来跑去，笑声传得很远。
-远处的山坡上，桃花开了，杏花也开了，一片粉白，像落了一地的云。
-老农牵着牛走过石桥，牛铃叮叮当当，惊起了水面上的几只白鹭。
-太阳渐渐升高，照在人身上暖洋洋的。炊烟从屋顶上升起来，饭菜的香味飘满了整个村子。
-奶奶坐在门口的石阶上，晒着太阳，手里不停地编着竹篮。她说，等再过些日子，就可以种瓜了。
-到了傍晚，天边的云被染成了橘红色，鸟儿成群地飞回树林。
-夜里下了一场小雨，早晨推开门，空气清得像洗过一样。</textarea>
-    <div class="row">
-      <label>上下文长度<input id="ctx" type="number" value="6" min="2" max="20"></label>
-      <label>隐藏层大小<input id="hidden" type="number" value="64" min="8" max="512"></label>
-      <label>学习率<input id="lr" type="number" value="0.01" step="0.001" min="0.0001"></label>
+  <div class="panel">
+    <h2>① 嵌入文件</h2>
+    <label>载体图片（建议长边 ≤1080，纹理丰富效果更好）</label>
+    <input type="file" id="carrierInput" accept="image/*">
+    <label>要藏的文件（可多选，总大小建议 &lt; 8KB）</label>
+    <input type="file" id="payloadInput" multiple>
+    <label>鲁棒冗余等级</label>
+    <select id="robustSelect">
+      <option value="3">平衡（redundancy=3，推荐）</option>
+      <option value="2">容量优先（redundancy=2，成功率略低）</option>
+      <option value="4">鲁棒优先（redundancy=4，容量减小）</option>
+    </select>
+    <button id="embedBtn">生成隐写图</button>
+    <div id="embedStatus" class="status"></div>
+    <div id="embedPreview" class="preview"></div>
+    <div class="hint">
+      · 算法：DWT-DCT-SVD 奇异值量化 + 冗余副本 + CRC 校验，全部在 WASM 中完成<br>
+      · 微信发送时<strong>不要勾选“原图”</strong>，普通图片发送即可测试抗压缩<br>
+      · 总载荷超过约 8KB 时失败率会上升，建议先藏小文件测试通路
     </div>
-    <div class="row">
-      <button id="btnTrain" class="primary">开始训练</button>
-      <button id="btnStop" disabled>停止</button>
-    </div>
-    <div class="stats">
-      <span>轮次 <b id="sEpoch">0</b></span>
-      <span>步数 <b id="sStep">0</b></span>
-      <span>损失 <b id="sLoss">-</b></span>
-      <span>速度 <b id="sSps">0</b>/s</span>
-      <span>参数 <b id="sParams">0</b></span>
-    </div>
-  </section>
-
-  <!-- ============ 2. 生成 ============ -->
-  <section class="panel">
-    <h2>2 · 生成文本（调试用）</h2>
-    <div class="row">
-      <label>起始词<input id="seed" type="text" placeholder="留空则从空格开始"></label>
-      <label>生成长度<input id="genLen" type="number" value="120" min="1" max="1000"></label>
-      <label>温度<input id="temp" type="number" value="0.8" step="0.1" min="0.1" max="2"></label>
-    </div>
-    <div class="row">
-      <button id="btnGen" class="primary">生成</button>
-    </div>
-    <pre id="output">（这里会显示生成的内容）</pre>
-  </section>
-
-  <!-- ============ 3. 导出 / 导入 ============ -->
-  <section class="panel full">
-    <h2>3 · 导出 / 导入模型文件</h2>
-    <p class="dim">
-      训练完成后点「导出 model.js」，会下载一个<b>自包含</b>的 JS 文件：里面既有全部权重（base64 编码的 Float32），也有推理代码。
-      在任何网页里写 <code>&lt;script src="model.js"&gt;&lt;/script&gt;</code>，就能直接用 <code>window.AI_MODEL</code> 聊天，不需要本页面。
-    </p>
-    <div class="row">
-      <button id="btnExportJs" class="primary">📦 导出 model.js</button>
-      <button id="btnExportJson">导出 JSON</button>
-      <button id="btnSave">💾 存 localStorage</button>
-      <button id="btnLoad">📂 从 localStorage 读</button>
-      <button id="btnDel">🗑 删除 localStorage</button>
-      <label style="flex:0 0 auto">导入 model.js / JSON
-        <input id="fileImport" type="file" accept=".js,.json" style="padding:4px;width:auto">
-      </label>
-    </div>
-    <p class="dim" id="exportInfo" style="margin-top:12px"></p>
-    <p class="dim" id="storeInfo" style="margin-top:4px">localStorage：尚未保存</p>
-  </section>
-
-  <!-- ============ 4. 聊天 ============ -->
-  <section class="panel full">
-    <h2>4 · 聊天</h2>
-    <p class="dim">
-      当前模型：<b id="chatModelInfo" style="color:var(--ok)">无</b>　
-      （把你的话当作开头，让模型接着往下写；温度越高越放飞）
-    </p>
-    <div id="chatLog"></div>
-    <div class="row">
-      <input id="chatInput" type="text" placeholder="说点什么，回车或点发送…">
-      <button id="chatSend" class="primary">发送</button>
-      <button id="chatClear">清空</button>
-    </div>
-  </section>
-
+  </div>
+  <div class="panel">
+    <h2>② 提取文件</h2>
+    <label>选择从微信下载的图片</label>
+    <input type="file" id="stegoInput" accept="image/*">
+    <button id="extractBtn">提取文件</button>
+    <div id="extractStatus" class="status"></div>
+    <div id="extractFiles" class="file-list"></div>
+    <div id="extractPreview" class="preview"></div>
+  </div>
 </div>
 
-<script>
-/* =========================================================
-   0. 工具函数
-   ========================================================= */
+<script type="module">
+import { BlindWatermark } from 'https://cdn.jsdelivr.net/npm/blind-watermark-wasm@2.0.0/+esm';
 
-function f32ToB64(arr) {
-  const bytes = new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
-  let s = '';
-  const CH = 0x2000;
-  for (let i = 0; i < bytes.length; i += CH) {
-    s += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+/* ================= 文件容器：多文件打包 ================= */
+const MAGIC = [0x48, 0x49, 0x44, 0x45]; // "HIDE"
+
+function packFiles(files) {
+  if (files.length > 255) throw new Error('文件数量不能超过 255 个');
+  const enc = new TextEncoder();
+  const names = files.map(f => enc.encode(f.name));
+  let total = 1;
+  for (let i = 0; i < files.length; i++)
+    total += 2 + names[i].length + 4 + files[i].data.length;
+  const out = new Uint8Array(total);
+  let p = 0;
+  out[p++] = files.length;
+  for (let i = 0; i < files.length; i++) {
+    const nl = names[i].length;
+    out[p++] = (nl >> 8) & 255;
+    out[p++] = nl & 255;
+    out.set(names[i], p); p += nl;
+    const sz = files[i].data.length;
+    out[p++] = (sz >>> 24) & 255;
+    out[p++] = (sz >>> 16) & 255;
+    out[p++] = (sz >>> 8) & 255;
+    out[p++] = sz & 255;
+    out.set(files[i].data, p); p += sz;
   }
-  return btoa(s);
-}
-function b64ToF32(b64) {
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return new Float32Array(bytes.buffer);
-}
-
-let _spare = null;
-function randn() {
-  if (_spare !== null) { const v = _spare; _spare = null; return v; }
-  let u, v, s;
-  do { u = Math.random() * 2 - 1; v = Math.random() * 2 - 1; s = u * u + v * v; }
-  while (s >= 1 || s === 0);
-  const m = Math.sqrt(-2 * Math.log(s) / s);
-  _spare = v * m;
-  return u * m;
-}
-
-function sampleFrom(probs, T) {
-  const n = probs.length;
-  if (T < 0.05) {
-    let best = 0;
-    for (let i = 1; i < n; i++) if (probs[i] > probs[best]) best = i;
-    return best;
-  }
-  const w = new Float64Array(n);
-  let sum = 0;
-  for (let i = 0; i < n; i++) { w[i] = Math.pow(probs[i], 1 / T); sum += w[i]; }
-  let r = Math.random() * sum;
-  for (let i = 0; i < n; i++) { r -= w[i]; if (r <= 0) return i; }
-  return n - 1;
+  return out;
 }
 
-function download(filename, text, mime) {
-  const blob = new Blob([text], { type: mime || 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
+function unpackFiles(buf) {
+  const dec = new TextDecoder();
+  let p = 0;
+  const count = buf[p++];
+  const files = [];
+  for (let i = 0; i < count; i++) {
+    const nl = (buf[p] << 8) | buf[p + 1]; p += 2;
+    const name = dec.decode(buf.subarray(p, p + nl)); p += nl;
+    const sz = ((buf[p] << 24) | (buf[p + 1] << 16) | (buf[p + 2] << 8) | buf[p + 3]) >>> 0; p += 4;
+    const data = buf.slice(p, p + sz); p += sz;
+    files.push({ name, data });
+  }
+  return files;
 }
 
-const $ = s => document.querySelector(s);
-
-/* =========================================================
-   1. 字符级 MLP 语言模型（训练版）
-   ========================================================= */
-
-class CharMLP {
-  constructor(vocab, ctx, hidden, chars) {
-    this.vocab = vocab;
-    this.ctx = ctx;
-    this.hidden = hidden;
-    this.inDim = vocab * ctx;
-    this.chars = chars ? chars.slice() : [];
-    this.charToIdx = new Map(this.chars.map((c, i) => [c, i]));
-
-    this.W1 = new Float32Array(this.inDim * hidden);
-    this.b1 = new Float32Array(hidden);
-    this.W2 = new Float32Array(hidden * vocab);
-    this.b2 = new Float32Array(vocab);
-
-    const s1 = Math.sqrt(2 / ctx);
-    for (let i = 0; i < this.W1.length; i++) this.W1[i] = randn() * s1;
-    const s2 = Math.sqrt(1 / hidden);
-    for (let i = 0; i < this.W2.length; i++) this.W2[i] = randn() * s2;
-
-    this.gW1 = new Float32Array(this.W1.length);
-    this.gb1 = new Float32Array(hidden);
-    this.gW2 = new Float32Array(this.W2.length);
-    this.gb2 = new Float32Array(vocab);
-
-    this.mW1 = new Float32Array(this.W1.length); this.vW1 = new Float32Array(this.W1.length);
-    this.mb1 = new Float32Array(hidden);         this.vb1 = new Float32Array(hidden);
-    this.mW2 = new Float32Array(this.W2.length); this.vW2 = new Float32Array(this.W2.length);
-    this.mb2 = new Float32Array(vocab);          this.vb2 = new Float32Array(vocab);
-
-    this.h = new Float32Array(hidden);
-    this.logits = new Float32Array(vocab);
-    this.probs = new Float32Array(vocab);
-    this.dlog = new Float32Array(vocab);
-    this.dh = new Float32Array(hidden);
-
-    this.t = 0;
+/* ================= CRC32（附加校验，双保险） ================= */
+const crcTable = (() => {
+  const t = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+    t[i] = c >>> 0;
   }
+  return t;
+})();
+function crc32(bytes) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) c = crcTable[(c ^ bytes[i]) & 255] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
 
-  paramCount() {
-    return this.W1.length + this.b1.length + this.W2.length + this.b2.length;
+function buildPayload(files) {
+  const packed = packFiles(files);
+  const len = packed.length;
+  const out = new Uint8Array(9 + len + 4);
+  out.set(MAGIC, 0);
+  out[4] = 1;
+  out[5] = (len >>> 24) & 255;
+  out[6] = (len >>> 16) & 255;
+  out[7] = (len >>> 8) & 255;
+  out[8] = len & 255;
+  out.set(packed, 9);
+  const crc = crc32(packed);
+  out[9 + len] = (crc >>> 24) & 255;
+  out[9 + len + 1] = (crc >>> 16) & 255;
+  out[9 + len + 2] = (crc >>> 8) & 255;
+  out[9 + len + 3] = crc & 255;
+  return out;
+}
+
+function parsePayload(payloadBytes) {
+  if (payloadBytes.length < 13) throw new Error('载荷过短');
+  if (payloadBytes[0] !== MAGIC[0] || payloadBytes[1] !== MAGIC[1] ||
+      payloadBytes[2] !== MAGIC[2] || payloadBytes[3] !== MAGIC[3])
+    throw new Error('魔数不匹配，不是本工具生成的数据');
+  const len = ((payloadBytes[5] << 24) | (payloadBytes[6] << 16) |
+               (payloadBytes[7] << 8) | payloadBytes[8]) >>> 0;
+  if (payloadBytes.length < 13 + len) throw new Error('载荷长度越界');
+  const packed = payloadBytes.slice(9, 9 + len);
+  const crcStored = ((payloadBytes[9 + len] << 24) | (payloadBytes[9 + len + 1] << 16) |
+                     (payloadBytes[9 + len + 2] << 8) | payloadBytes[9 + len + 3]) >>> 0;
+  if (crc32(packed) !== crcStored) throw new Error('CRC32 校验失败，数据可能损坏');
+  return unpackFiles(packed);
+}
+
+/* ================= WASM 隐写引擎 ================= */
+let bwmInstance = null;
+
+function getBwm(redundancy) {
+  // 复用实例，避免重复初始化 WASM
+  if (!bwmInstance || bwmInstance._redundancy !== redundancy) {
+    bwmInstance = new BlindWatermark({ redundancy });
+    bwmInstance._redundancy = redundancy;
   }
+  return bwmInstance;
+}
 
-  forward(ctxIds) {
-    const { vocab, hidden, ctx } = this;
-    const h = this.h, logits = this.logits;
-    h.set(this.b1);
-    for (let c = 0; c < ctx; c++) {
-      const off = (c * vocab + ctxIds[c]) * hidden;
-      for (let j = 0; j < hidden; j++) h[j] += this.W1[off + j];
-    }
-    for (let j = 0; j < hidden; j++) if (h[j] < 0) h[j] = 0;
+async function embedWithWasm(carrierFile, payloadBytes, redundancy) {
+  const imageBytes = new Uint8Array(await carrierFile.arrayBuffer());
+  const bwm = getBwm(redundancy);
+  // 输出 JPEG 保持文件体积较小；算法本身对 JPEG 再压缩有鲁棒性
+  const watermarked = await bwm.embed(imageBytes, payloadBytes, 'jpeg');
+  return new Blob([watermarked], { type: 'image/jpeg' });
+}
 
-    logits.set(this.b2);
-    for (let j = 0; j < hidden; j++) {
-      const hj = h[j];
-      if (hj === 0) continue;
-      const off = j * vocab;
-      for (let o = 0; o < vocab; o++) logits[o] += this.W2[off + o] * hj;
-    }
+async function extractWithWasm(stegoFile) {
+  const imageBytes = new Uint8Array(await stegoFile.arrayBuffer());
+  // 用默认配置尝试；如果用户嵌入时改了 redundancy，默认值可能不匹配，
+  // 但 blind-watermark-wasm 的 redundancy 只影响嵌入端，提取端自动适配。
+  const bwm = new BlindWatermark();
+  const result = await bwm.extract(imageBytes);
+  if (!result) throw new Error('未检测到水印（可能是非本工具生成的图片，或密码不匹配）');
+  if (!result.valid) throw new Error('水印校验未通过：图片可能被过度压缩或缩放，请尝试纹理更丰富的载体图');
+  return result.bytes; // Uint8Array
+}
 
-    let mx = -Infinity;
-    for (let o = 0; o < vocab; o++) if (logits[o] > mx) mx = logits[o];
-    let sum = 0;
-    const p = this.probs;
-    for (let o = 0; o < vocab; o++) { const e = Math.exp(logits[o] - mx); p[o] = e; sum += e; }
-    const inv = 1 / sum;
-    for (let o = 0; o < vocab; o++) p[o] *= inv;
-    return p;
-  }
+/* ================= 预览辅助 ================= */
+function mimeOf(name) {
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  const map = {
+    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
+    webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp',
+    txt: 'text/plain', md: 'text/markdown', json: 'application/json',
+    html: 'text/html', css: 'text/css', js: 'text/javascript',
+    xml: 'text/xml', csv: 'text/csv', log: 'text/plain',
+    pdf: 'application/pdf',
+  };
+  return map[ext] || 'application/octet-stream';
+}
+function isText(name) {
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  return ['txt', 'md', 'json', 'html', 'css', 'js', 'xml', 'csv', 'log'].includes(ext);
+}
+function formatSize(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+  return (n / 1024 / 1024).toFixed(2) + ' MB';
+}
 
-  backward(ctxIds, target) {
-    const { vocab, hidden, ctx } = this;
-    const h = this.h, p = this.probs, dlog = this.dlog, dh = this.dh;
-
-    for (let o = 0; o < vocab; o++) dlog[o] = p[o];
-    dlog[target] -= 1;
-
-    for (let o = 0; o < vocab; o++) this.gb2[o] += dlog[o];
-
-    dh.fill(0);
-    for (let j = 0; j < hidden; j++) {
-      if (h[j] === 0) continue;
-      const off = j * vocab;
-      const hj = h[j];
-      let s = 0;
-      for (let o = 0; o < vocab; o++) {
-        s += this.W2[off + o] * dlog[o];
-        this.gW2[off + o] += hj * dlog[o];
-      }
-      dh[j] = s;
-    }
-
-    for (let c = 0; c < ctx; c++) {
-      const off = (c * vocab + ctxIds[c]) * hidden;
-      for (let j = 0; j < hidden; j++) {
-        const g = dh[j];
-        if (g !== 0) this.gW1[off + j] += g;
-      }
-    }
-    for (let j = 0; j < hidden; j++) this.gb1[j] += dh[j];
-
-    return -Math.log(Math.max(p[target], 1e-12));
-  }
-
-  step(lr) {
-    this.t++;
-    const B1 = 0.9, B2 = 0.999, EPS = 1e-8;
-    const bc1 = 1 - Math.pow(B1, this.t);
-    const bc2 = 1 - Math.pow(B2, this.t);
-    const upd = (P, G, M, V) => {
-      for (let i = 0; i < P.length; i++) {
-        const g = G[i];
-        M[i] = B1 * M[i] + (1 - B1) * g;
-        V[i] = B2 * V[i] + (1 - B2) * g * g;
-        P[i] -= lr * (M[i] / bc1) / (Math.sqrt(V[i] / bc2) + EPS);
-      }
-      G.fill(0);
-    };
-    upd(this.W1, this.gW1, this.mW1, this.vW1);
-    upd(this.b1, this.gb1, this.mb1, this.vb1);
-    upd(this.W2, this.gW2, this.mW2, this.vW2);
-    upd(this.b2, this.gb2, this.mb2, this.vb2);
-  }
-
-  trainSample(ctxIds, target, lr) {
-    this.forward(ctxIds);
-    const loss = this.backward(ctxIds, target);
-    this.step(lr);
-    return loss;
-  }
-
-  generate(seedIds, length, temperature) {
-    const ids = seedIds.slice();
-    const out = [];
-    const ctxIds = new Int32Array(this.ctx);
-    for (let i = 0; i < length; i++) {
-      for (let c = 0; c < this.ctx; c++) {
-        const k = ids.length - this.ctx + c;
-        ctxIds[c] = k >= 0 ? ids[k] : 0;
-      }
-      const p = this.forward(ctxIds);
-      const nxt = sampleFrom(p, temperature);
-      out.push(nxt);
-      ids.push(nxt);
-      if (ids.length > 4096) ids.splice(0, 2048);
-    }
-    return out;
-  }
-
-  serialize() {
-    const parts = [this.W1, this.b1, this.W2, this.b2];
-    let total = 0;
-    for (const p of parts) total += p.length;
-    const buf = new Float32Array(total);
-    let off = 0;
-    for (const p of parts) { buf.set(p, off); off += p.length; }
-    return JSON.stringify({
-      version: 1,
-      vocab: this.vocab,
-      ctx: this.ctx,
-      hidden: this.hidden,
-      chars: this.chars,
-      data: f32ToB64(buf)
-    });
-  }
-
-  static deserialize(str) {
-    const o = JSON.parse(str);
-    const m = new CharMLP(o.vocab, o.ctx, o.hidden, o.chars);
-    const buf = b64ToF32(o.data);
-    let off = 0;
-    for (const p of [m.W1, m.b1, m.W2, m.b2]) {
-      p.set(buf.subarray(off, off + p.length));
-      off += p.length;
-    }
-    return m;
+function renderFiles(files) {
+  const listEl = document.getElementById('extractFiles');
+  const previewEl = document.getElementById('extractPreview');
+  listEl.innerHTML = '';
+  previewEl.innerHTML = '';
+  for (const f of files) {
+    const blob = new Blob([f.data], { type: mimeOf(f.name) });
+    const url = URL.createObjectURL(blob);
+    const item = document.createElement('div');
+    item.className = 'file-item';
+    const nameEl = document.createElement('span');
+    nameEl.className = 'name';
+    nameEl.textContent = f.name;
+    const sizeEl = document.createElement('span');
+    sizeEl.className = 'size';
+    sizeEl.textContent = formatSize(f.data.length);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = f.name;
+    a.textContent = '下载';
+    const btn = document.createElement('button');
+    btn.textContent = '预览';
+    btn.onclick = () => previewFile(f, previewEl);
+    item.appendChild(nameEl);
+    item.appendChild(sizeEl);
+    item.appendChild(a);
+    item.appendChild(btn);
+    listEl.appendChild(item);
   }
 }
 
-/* =========================================================
-   2. 生成自包含的 model.js 源码
-   ========================================================= */
-
-function buildModelJsSource(raw) {
-  const json = JSON.stringify(raw);
-  return `/* ============================================================
- * model.js — 由「纯 JS 神经网络 AI」导出
- * 生成时间：${new Date().toLocaleString()}
- * 结构：字符级 MLP（one-hot(上下文) → 全连接 → ReLU → 全连接 → Softmax）
- *
- * 用法：
- *   <script src="model.js"></script>
- *   const ids = AI_MODEL.encode("你好");
- *   const out = AI_MODEL.generate(ids, 100, 0.85);
- *   console.log(AI_MODEL.textOf(out));
- * ============================================================ */
-(function (global) {
-  'use strict';
-
-  var RAW = ${json};
-
-  function b64ToF32(b64) {
-    var bin = atob(b64);
-    var bytes = new Uint8Array(bin.length);
-    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return new Float32Array(bytes.buffer);
+function previewFile(f, container) {
+  container.innerHTML = '';
+  const mime = mimeOf(f.name);
+  const url = URL.createObjectURL(new Blob([f.data], { type: mime }));
+  if (mime.startsWith('image/')) {
+    const img = document.createElement('img');
+    img.src = url;
+    container.appendChild(img);
+  } else if (isText(f.name)) {
+    const pre = document.createElement('pre');
+    pre.textContent = new TextDecoder().decode(f.data);
+    container.appendChild(pre);
+  } else if (mime === 'application/pdf') {
+    const iframe = document.createElement('iframe');
+    iframe.src = url;
+    container.appendChild(iframe);
+  } else {
+    container.textContent = '该类型不支持在线预览，请下载后查看。';
   }
-
-  function build(raw) {
-    var vocab = raw.vocab, ctx = raw.ctx, hidden = raw.hidden, chars = raw.chars;
-    var buf = b64ToF32(raw.data);
-    var off = 0;
-    var W1 = buf.subarray(off, off + vocab * ctx * hidden); off += W1.length;
-    var b1 = buf.subarray(off, off + hidden);               off += hidden;
-    var W2 = buf.subarray(off, off + hidden * vocab);       off += hidden * vocab;
-    var b2 = buf.subarray(off, off + vocab);
-
-    var charToIdx = new Map();
-    for (var i = 0; i < chars.length; i++) charToIdx.set(chars[i], i);
-
-    var h = new Float32Array(hidden);
-    var logits = new Float32Array(vocab);
-    var probs = new Float32Array(vocab);
-
-    function forward(ctxIds) {
-      var c, j, k, o;
-      h.set(b1);
-      for (c = 0; c < ctx; c++) {
-        o = (c * vocab + ctxIds[c]) * hidden;
-        for (j = 0; j < hidden; j++) h[j] += W1[o + j];
-      }
-      for (j = 0; j < hidden; j++) if (h[j] < 0) h[j] = 0;
-
-      logits.set(b2);
-      for (j = 0; j < hidden; j++) {
-        var hj = h[j];
-        if (hj === 0) continue;
-        o = j * vocab;
-        for (k = 0; k < vocab; k++) logits[k] += W2[o + k] * hj;
-      }
-
-      var mx = -Infinity;
-      for (k = 0; k < vocab; k++) if (logits[k] > mx) mx = logits[k];
-      var sum = 0;
-      for (k = 0; k < vocab; k++) { var e = Math.exp(logits[k] - mx); probs[k] = e; sum += e; }
-      var inv = 1 / sum;
-      for (k = 0; k < vocab; k++) probs[k] *= inv;
-      return probs;
-    }
-
-    function sample(T) {
-      var k;
-      if (T < 0.05) {
-        var best = 0;
-        for (k = 1; k < vocab; k++) if (probs[k] > probs[best]) best = k;
-        return best;
-      }
-      var w = new Float64Array(vocab);
-      var sum = 0;
-      for (k = 0; k < vocab; k++) { w[k] = Math.pow(probs[k], 1 / T); sum += w[k]; }
-      var r = Math.random() * sum;
-      for (k = 0; k < vocab; k++) { r -= w[k]; if (r <= 0) return k; }
-      return vocab - 1;
-    }
-
-    function generate(seedIds, length, T) {
-      var ids = seedIds.slice();
-      var out = [];
-      var ctxIds = new Int32Array(ctx);
-      for (var i = 0; i < length; i++) {
-        for (var c = 0; c < ctx; c++) {
-          var k = ids.length - ctx + c;
-          ctxIds[c] = k >= 0 ? ids[k] : 0;
-        }
-        forward(ctxIds);
-        var nxt = sample(T);
-        out.push(nxt);
-        ids.push(nxt);
-        if (ids.length > 4096) ids.splice(0, 2048);
-      }
-      return out;
-    }
-
-    function encode(str) {
-      var a = [];
-      for (var i = 0; i < str.length; i++) {
-        var id = charToIdx.get(str[i]);
-        if (id !== undefined) a.push(id);
-      }
-      return a;
-    }
-
-    function textOf(idArr) {
-      var s = '';
-      for (var i = 0; i < idArr.length; i++) s += chars[idArr[i]];
-      return s;
-    }
-
-    return {
-      vocab: vocab, ctx: ctx, hidden: hidden, chars: chars, charToIdx: charToIdx,
-      forward: forward, generate: generate, encode: encode, textOf: textOf,
-      paramCount: function () { return W1.length + b1.length + W2.length + b2.length; }
-    };
-  }
-
-  global.AI_MODEL = build(RAW);
-
-  if (typeof module !== 'undefined' && module.exports) module.exports = global.AI_MODEL;
-
-})(typeof window !== 'undefined' ? window : globalThis);
-`;
 }
 
-/* =========================================================
-   3. localStorage 存储
-   ========================================================= */
+/* ================= UI 绑定 ================= */
+const $ = id => document.getElementById(id);
 
-const ModelStore = {
-  KEY: 'char_mlp_model_v1',
-  save(model) {
-    try { localStorage.setItem(this.KEY, model.serialize()); return { ok: true }; }
-    catch (e) { return { ok: false, msg: e.message || String(e) }; }
-  },
-  load() {
-    const raw = localStorage.getItem(this.KEY);
-    if (!raw) return null;
-    try { return CharMLP.deserialize(raw); } catch (e) { console.error(e); return null; }
-  },
-  remove() { localStorage.removeItem(this.KEY); },
-  size() { const r = localStorage.getItem(this.KEY); return r ? r.length : 0; }
+$('embedBtn').onclick = async () => {
+  const carrierFile = $('carrierInput').files[0];
+  const payloadFiles = Array.from($('payloadInput').files);
+  const status = $('embedStatus');
+  const btn = $('embedBtn');
+
+  if (!carrierFile) { alert('请选择载体图片'); return; }
+  if (!payloadFiles.length) { alert('请选择要藏的文件'); return; }
+
+  const redundancy = parseInt($('robustSelect').value, 10);
+  status.className = 'status info';
+  status.textContent = 'WASM 处理中…';
+  $('embedPreview').innerHTML = '';
+  btn.disabled = true;
+
+  try {
+    const files = [];
+    for (const f of payloadFiles) {
+      files.push({ name: f.name, data: new Uint8Array(await f.arrayBuffer()) });
+    }
+    const payload = buildPayload(files);
+
+    if (payload.length > 16 * 1024) {
+      throw new Error(`载荷 ${formatSize(payload.length)} 过大，WASM 隐写引擎在 1080p 载体上通常只能容纳约 8KB，请减少文件或压缩后再试`);
+    }
+
+    const blob = await embedWithWasm(carrierFile, payload, redundancy);
+    const url = URL.createObjectURL(blob);
+
+    status.className = 'status ok';
+    status.textContent = `嵌入成功！载荷 ${payload.length} 字节，冗余等级 ${redundancy}。请下载后通过微信普通图片发送（不要勾选原图）测试。`;
+
+    const wrap = $('embedPreview');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'stego.jpg';
+    a.className = 'download';
+    a.textContent = '⬇ 下载隐写图';
+    const br = document.createElement('br');
+    const img = document.createElement('img');
+    img.src = url;
+    wrap.appendChild(a);
+    wrap.appendChild(br);
+    wrap.appendChild(img);
+  } catch (e) {
+    status.className = 'status err';
+    status.textContent = '失败：' + e.message;
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+  }
 };
 
-/* =========================================================
-   4. 应用逻辑
-   ========================================================= */
+$('extractBtn').onclick = async () => {
+  const file = $('stegoInput').files[0];
+  const status = $('extractStatus');
+  const btn = $('extractBtn');
+  if (!file) { alert('请选择隐写图片'); return; }
 
-let model = null;        // 当前训练 / 从 localStorage 加载的模型
-let activeModel = null;  // 聊天时实际使用的模型
-let running = false;
-let timerId = null;
+  status.className = 'status info';
+  status.textContent = 'WASM 提取中…';
+  $('extractFiles').innerHTML = '';
+  $('extractPreview').innerHTML = '';
+  btn.disabled = true;
 
-/* -------- 数据集 -------- */
-function buildDataset(text, ctx) {
-  const set = new Set([' ']);
-  for (const ch of text) set.add(ch);
-  const chars = Array.from(set);
-  const charToIdx = new Map(chars.map((c, i) => [c, i]));
+  try {
+    const payloadBytes = await extractWithWasm(file);
+    const files = parsePayload(payloadBytes);
 
-  const ids = new Int32Array(text.length);
-  let k = 0;
-  for (const ch of text) ids[k++] = charToIdx.get(ch);
-
-  const n = ids.length - ctx;
-  if (n <= 0) return null;
-
-  const X = new Int32Array(n * ctx);
-  const Y = new Int32Array(n);
-  for (let i = 0; i < n; i++) {
-    for (let c = 0; c < ctx; c++) X[i * ctx + c] = ids[i + c];
-    Y[i] = ids[i + ctx];
+    status.className = 'status ok';
+    status.textContent = `提取成功！共 ${files.length} 个文件，CRC32 双重校验通过。`;
+    renderFiles(files);
+  } catch (e) {
+    status.className = 'status err';
+    status.textContent = '失败：' + e.message;
+    console.error(e);
+  } finally {
+    btn.disabled = false;
   }
-  return { chars, charToIdx, X, Y, n };
-}
-
-function shuffle(a) {
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = (Math.random() * (i + 1)) | 0;
-    const t = a[i]; a[i] = a[j]; a[j] = t;
-  }
-}
-
-/* -------- 训练 -------- */
-function startTraining() {
-  stopTraining();
-
-  const text = $('#corpus').value;
-  const ctx = Math.min(20, Math.max(2, parseInt($('#ctx').value, 10) || 6));
-  const hidden = Math.min(512, Math.max(8, parseInt($('#hidden').value, 10) || 64));
-  const lr = Math.max(1e-5, parseFloat($('#lr').value) || 0.01);
-
-  const ds = buildDataset(text, ctx);
-  if (!ds) { alert('训练文本太短了，至少要比上下文长度长。'); return; }
-
-  model = new CharMLP(ds.chars.length, ctx, hidden, ds.chars);
-  activeModel = model;
-  refreshChatModelInfo();
-  $('#sParams').textContent = model.paramCount().toLocaleString();
-
-  const { X, Y, n } = ds;
-  const order = new Int32Array(n);
-  for (let i = 0; i < n; i++) order[i] = i;
-
-  let epoch = 0, ptr = 0, step = 0;
-  let lossEMA = 0, hasLoss = false;
-  let tPrev = performance.now(), sPrev = 0;
-
-  running = true;
-  $('#btnTrain').disabled = true;
-  $('#btnStop').disabled = false;
-
-  const chunk = () => {
-    if (!running) return;
-    const t0 = performance.now();
-    let chunkLoss = 0, chunkCnt = 0;
-
-    while (performance.now() - t0 < 35) {
-      if (ptr >= n) { ptr = 0; epoch++; shuffle(order); }
-      const i = order[ptr++];
-      const off = i * ctx;
-      const loss = model.trainSample(X.subarray(off, off + ctx), Y[i], lr);
-      chunkLoss += loss; chunkCnt++; step++;
-    }
-
-    if (chunkCnt > 0) {
-      const avg = chunkLoss / chunkCnt;
-      lossEMA = hasLoss ? lossEMA * 0.9 + avg * 0.1 : avg;
-      hasLoss = true;
-    }
-
-    const now = performance.now();
-    if (now - tPrev > 500) {
-      $('#sSps').textContent = Math.round((step - sPrev) / ((now - tPrev) / 1000));
-      tPrev = now; sPrev = step;
-    }
-
-    $('#sEpoch').textContent = epoch;
-    $('#sStep').textContent = step;
-    $('#sLoss').textContent = hasLoss ? lossEMA.toFixed(4) : '-';
-
-    timerId = setTimeout(chunk, 0);
-  };
-  chunk();
-}
-
-function stopTraining() {
-  running = false;
-  if (timerId) { clearTimeout(timerId); timerId = null; }
-  $('#btnTrain').disabled = false;
-  $('#btnStop').disabled = true;
-}
-
-/* -------- 生成（调试面板） -------- */
-function generateText() {
-  if (!model) { alert('还没有模型，请先训练或加载。'); return; }
-
-  const seedStr = $('#seed').value;
-  const len = Math.min(1000, Math.max(1, parseInt($('#genLen').value, 10) || 120));
-  const temp = Math.max(0.05, parseFloat($('#temp').value) || 0.8);
-
-  const seedIds = [];
-  for (const ch of seedStr) {
-    const id = model.charToIdx.get(ch);
-    if (id !== undefined) seedIds.push(id);
-  }
-
-  const t0 = performance.now();
-  const outIds = model.generate(seedIds, len, temp);
-  const ms = (performance.now() - t0).toFixed(0);
-  const outText = seedStr + outIds.map(i => model.chars[i]).join('');
-  $('#output').textContent = outText + `\n\n—— ${len} 个字符，耗时 ${ms} ms ——`;
-}
-
-/* -------- 导出 -------- */
-function exportModelJs() {
-  if (!model) { alert('还没有模型，请先训练。'); return; }
-  const raw = JSON.parse(model.serialize());
-  const src = buildModelJsSource(raw);
-  download('model.js', src, 'text/javascript;charset=utf-8');
-  $('#exportInfo').textContent =
-    `已导出 model.js（约 ${(src.length / 1024).toFixed(1)} KB，含 ${model.paramCount().toLocaleString()} 个参数）` +
-    `　用法：<script src="model.js"><\/script> 然后调用 AI_MODEL.generate(...)`;
-}
-
-function exportModelJson() {
-  if (!model) { alert('还没有模型，请先训练。'); return; }
-  download('model.json', model.serialize(), 'application/json;charset=utf-8');
-  $('#exportInfo').textContent = '已导出 model.json（纯数据，不含推理代码）';
-}
-
-/* -------- 导入 -------- */
-function importModelFile(file) {
-  const reader = new FileReader();
-  reader.onload = () => {
-    const text = String(reader.result);
-    let m = null;
-
-    // 1) 尝试当作 model.js 执行（会设置 window.AI_MODEL）
-    if (/\.js$/i.test(file.name)) {
-      try {
-        const fn = new Function(text + '\nreturn (typeof window !== "undefined" ? window.AI_MODEL : null);');
-        m = fn();
-      } catch (e) { console.warn('执行 JS 失败：', e); }
-    }
-
-    // 2) 尝试当作纯 JSON 解析
-    if (!m) {
-      try {
-        const o = JSON.parse(text);
-        if (o && o.chars && o.data) {
-          // 手动构建一个只读推理对象
-          const src = buildModelJsSource(o);
-          const fn = new Function(src + '\nreturn window.AI_MODEL;');
-          m = fn();
-        }
-      } catch (e) { console.warn('解析 JSON 失败：', e); }
-    }
-
-    if (!m) { alert('加载失败：文件里没有找到可用的模型数据。'); return; }
-
-    activeModel = m;
-    refreshChatModelInfo();
-    $('#ctx').value = m.ctx;
-    $('#hidden').value = m.hidden;
-    $('#sParams').textContent = m.paramCount().toLocaleString();
-    $('#exportInfo').textContent = `已导入 ${file.name}，现在聊天用的就是这个模型。`;
-    appendMsg('sys', `已加载模型：${file.name}`);
-  };
-  reader.readAsText(file);
-}
-
-/* -------- 存储 UI -------- */
-function refreshStoreInfo() {
-  const bytes = ModelStore.size();
-  $('#storeInfo').textContent = bytes
-    ? `localStorage：已保存 ${(bytes / 1024).toFixed(1)} KB（键 ${ModelStore.KEY}）`
-    : 'localStorage：尚未保存';
-}
-
-/* -------- 聊天 -------- */
-function refreshChatModelInfo() {
-  const m = activeModel;
-  if (!m) { $('#chatModelInfo').textContent = '无'; return; }
-  const tag = (model && m === model) ? '当前训练的模型' : '导入的模型';
-  $('#chatModelInfo').textContent =
-    `${tag} · 词表 ${m.vocab} · 上下文 ${m.ctx} · 隐藏层 ${m.hidden}`;
-}
-
-function appendMsg(kind, text) {
-  const div = document.createElement('div');
-  div.className = 'msg ' + kind;
-  div.textContent = text;
-  const log = $('#chatLog');
-  log.appendChild(div);
-  log.scrollTop = log.scrollHeight;
-  return div;
-}
-
-function cleanReply(s) {
-  s = s.replace(/^[\s\u3000，、。！？；：""''（）《》]+/, '');
-  const m = s.match(/^[^。！？\n]*[。！？\n]/);
-  if (m && m[0].length >= 4) s = m[0];
-  s = s.replace(/[\s\u3000]+$/, '');
-  return s;
-}
-
-function chatReply(userText) {
-  const m = activeModel;
-  if (!m) return '（还没有模型：请先在左侧训练，或在上方导入 model.js）';
-
-  // 把你的话当作种子；模型没见过的字符跳过
-  const seedIds = [];
-  for (const ch of userText) {
-    const id = m.charToIdx.get(ch);
-    if (id !== undefined) seedIds.push(id);
-  }
-  if (seedIds.length === 0) seedIds.push(0); // 空格，作为开头
-
-  const ids = m.generate(seedIds, 100, 0.85);
-  const raw = ids.map(i => m.chars[i]).join('');
-  const reply = cleanReply(raw);
-  return reply || '（没生成出内容，换个说法再试试）';
-}
-
-function sendChat() {
-  const input = $('#chatInput');
-  const text = input.value.trim();
-  if (!text) return;
-  if (!activeModel) {
-    appendMsg('sys', '还没有可用模型，请先训练或导入 model.js');
-    return;
-  }
-  appendMsg('user', text);
-  input.value = '';
-
-  const thinking = appendMsg('sys', '思考中…');
-  setTimeout(() => {
-    const t0 = performance.now();
-    const reply = chatReply(text);
-    const ms = (performance.now() - t0).toFixed(0);
-    thinking.remove();
-    appendMsg('bot', reply);
-    if (ms > 200) appendMsg('sys', `（生成耗时 ${ms} ms）`);
-  }, 10);
-}
-
-/* -------- 事件绑定 -------- */
-$('#btnTrain').addEventListener('click', startTraining);
-$('#btnStop').addEventListener('click', stopTraining);
-$('#btnGen').addEventListener('click', generateText);
-$('#btnExportJs').addEventListener('click', exportModelJs);
-$('#btnExportJson').addEventListener('click', exportModelJson);
-
-$('#btnSave').addEventListener('click', () => {
-  if (!model) { alert('还没有模型可以保存。'); return; }
-  const r = ModelStore.save(model);
-  if (r.ok) { refreshStoreInfo(); $('#storeInfo').textContent += '  ✅ 保存成功'; }
-  else alert('保存失败（可能超出 localStorage 容量）：' + r.msg);
-});
-
-$('#btnLoad').addEventListener('click', () => {
-  const m = ModelStore.load();
-  if (!m) { alert('没有找到已保存的模型，或数据已损坏。'); return; }
-  stopTraining();
-  model = m;
-  activeModel = m;
-  $('#ctx').value = m.ctx;
-  $('#hidden').value = m.hidden;
-  $('#sParams').textContent = m.paramCount().toLocaleString();
-  refreshChatModelInfo();
-  refreshStoreInfo();
-  appendMsg('sys', '已从 localStorage 加载模型');
-});
-
-$('#btnDel').addEventListener('click', () => {
-  ModelStore.remove();
-  refreshStoreInfo();
-});
-
-$('#fileImport').addEventListener('change', e => {
-  const f = e.target.files && e.target.files[0];
-  if (f) importModelFile(f);
-  e.target.value = '';
-});
-
-$('#chatSend').addEventListener('click', sendChat);
-$('#chatInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
-});
-$('#chatClear').addEventListener('click', () => {
-  $('#chatLog').innerHTML = '';
-  appendMsg('sys', '对话已清空');
-});
-
-/* -------- 初始化 -------- */
-refreshStoreInfo();
-refreshChatModelInfo();
-appendMsg('sys', '开始训练，或导入 model.js 后即可聊天');
+};
 </script>
 </body>
 </html>
