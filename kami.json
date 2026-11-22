@@ -1,6 +1,6 @@
 {
     "API_URL": "https://kami.bzks.dpdns.org",
-    "is_Enable": false,
+    "is_Enable": true,
     "number": 10,
     "message": "卡密验证系统"
 }
